@@ -1,0 +1,177 @@
+
+
+  lambdax = 2 * pi / kx
+  lambday = 2 * pi / ky
+  Lx = ceil(0.2 / lambdax) * lambdax
+  Ly = ceil(0.2 / lambday) * lambday
+
+  mi=mioverme*me
+  pimax = 10 * sqrt(qe * Ti_eV * mi / 2)
+
+  wci=qe*B0/mi
+  tci=2*pi/wci
+  tw=2*pi/w
+
+  t_final=10 * Lx / c
+  
+  dt_snap_global=t_final/1023
+  nfull=nint(tci/dt_snap_global)
+
+  gy = 100.0 # gradient in y direction
+  oy = 0.05 # offset of y gradient
+  x1 = 0.05 # position of envelope x
+  y1 = 0.05 # position of envelope y
+  sx = 0.01 # width of envelope x
+  sy = 0.01 # width of envelope y
+end:constant
+
+begin:control
+  #size of domain
+  x_min=0
+  x_max=Lx
+  y_min=0
+  y_max=Ly
+
+  #global number of gridpoints
+  nx=NGX #in x
+  ny=NGX #in y
+  npart=nx*ny*20
+
+  nsteps=-1
+  t_end=t_final
+  dt_multiplier=0.95
+
+  n_zeros=5
+
+  print_constants=T
+  smooth_currents=T
+end:control
+
+begin:output
+  name = global
+
+  use_offset_grid=F
+  dt_snapshot=dt_snap_global
+  dt_average=dt_snap_global
+  nstep_average=1
+
+#  full_dump_every=nfull
+#  restart_dump_every=-1
+#  force_final_to_be_restartable=T
+
+#Properties at particle positions
+
+  particles=never
+  px=never
+  py=never
+  pz=never
+  vx=never
+  vy=never
+  vz=never
+  charge=never
+  mass=never
+  particle_weight=never
+  species_id=never
+
+#Properties on grid
+  grid=always 
+  ex=always + average + snapshot
+  ey=always + average + snapshot
+  ez=always + average + snapshot
+  bx=always + average + snapshot
+  by=always + average + snapshot
+  bz=always + average + snapshot
+  jx=always + average + snapshot
+  jy=always + average + snapshot
+  jz=always + average + snapshot
+  average_particle_energy=always + species + no_sum
+  charge_density=always + snapshot + species + no_sum
+  temperature=always + snapshot + species + no_sum
+  particle_energy_flux=always + snapshot + species + no_sum
+  poynting_flux=always + snapshot
+  total_energy_sum=always + snapshot
+
+  #extended io
+  distribution_functions=always
+end:output
+
+begin:fields
+  ex=exp(-(x-x1)^2/sx^2 - (y-y1)^2/sy^2)*(Ex_cos*cos(kx*x+ky*y) + Ex_sin*sin(kx*x+ky*y))
+  ey=exp(-(x-x1)^2/sx^2 - (y-y1)^2/sy^2)*(Ey_cos*cos(kx*x+ky*y) + Ey_sin*sin(kx*x+ky*y))
+  ez=exp(-(x-x1)^2/sx^2 - (y-y1)^2/sy^2)*(Ez_cos*cos(kx*x+ky*y) + Ez_sin*sin(kx*x+ky*y))
+  bx=exp(-(x-x1)^2/sx^2 - (y-y1)^2/sy^2)*(Bx_cos*cos(kx*x+ky*y) + Bx_sin*sin(kx*x+ky*y) + B0)
+  by=exp(-(x-x1)^2/sx^2 - (y-y1)^2/sy^2)*(By_cos*cos(kx*x+ky*y) + By_sin*sin(kx*x+ky*y))
+  bz=exp(-(x-x1)^2/sx^2 - (y-y1)^2/sy^2)*(Bz_cos*cos(kx*x+ky*y) + Bz_sin*sin(kx*x+ky*y))
+  jx=exp(-(x-x1)^2/sx^2 - (y-y1)^2/sy^2)*(Jx_cos*cos(kx*x+ky*y) + Jx_sin*sin(kx*x+ky*y))
+  jy=exp(-(x-x1)^2/sx^2 - (y-y1)^2/sy^2)*(Jy_cos*cos(kx*x+ky*y) + Jy_sin*sin(kx*x+ky*y))
+  jz=exp(-(x-x1)^2/sx^2 - (y-y1)^2/sy^2)*(Jz_cos*cos(kx*x+ky*y) + Jz_sin*sin(kx*x+ky*y))
+end:fields
+
+begin:boundaries
+  bc_x_min=periodic
+  bc_x_max=periodic
+  bc_y_min_field=simple_outflow
+  bc_y_max_field=simple_outflow
+  bc_y_min_particle=reflect
+  bc_y_max_particle=reflect
+end:boundaries
+
+begin:species
+  name=Electron
+  charge=-1.0
+  mass=1.0
+  frac=1/2
+  dump=T
+  temp_ev=Te_eV
+  rho=n0+ exp(-(x-x1)^2/sx^2 - (y-y1)^2/sy^2)*(ne_cos*cos(kx*x+ky*y) + ne_sin*sin(kx*x+ky*y)) + (y gt oy) * gy * (y - oy) * n0
+  drift_x=exp(-(x-x1)^2/sx^2 - (y-y1)^2/sy^2)*(Pex_cos*cos(kx*x+ky*y) + Pex_sin*sin(kx*x+ky*y))
+  drift_y=exp(-(x-x1)^2/sx^2 - (y-y1)^2/sy^2)*(Pey_cos*cos(kx*x+ky*y) + Pey_sin*sin(kx*x+ky*y))
+  drift_z=exp(-(x-x1)^2/sx^2 - (y-y1)^2/sy^2)*(Pez_cos*cos(kx*x+ky*y) + Pez_sin*sin(kx*x+ky*y))
+end:species
+
+begin:species
+  name=Ion
+  charge=1
+  mass=mioverme
+  frac=1/2
+  dump=T
+  temp_ev=Ti_eV
+  rho=n0+ exp(-(x-x1)^2/sx^2 - (y-y1)^2/sy^2)*((ni_cos*cos(kx*x+ky*y) + ni_sin*sin(kx*x+ky*y)) + (y gt oy) * gy * (y - oy) * n0
+  drift_x=exp(-(x-x1)^2/sx^2 - (y-y1)^2/sy^2)*((Pix_cos*cos(kx*x+ky*y) + Pix_sin*sin(kx*x+ky*y))
+  drift_y=exp(-(x-x1)^2/sx^2 - (y-y1)^2/sy^2)*((Piy_cos*cos(kx*x+ky*y) + Piy_sin*sin(kx*x+ky*y))
+  drift_z=exp(-(x-x1)^2/sx^2 - (y-y1)^2/sy^2)*((Piz_cos*cos(kx*x+ky*y) + Piz_sin*sin(kx*x+ky*y))
+end:species
+
+begin:dist_fn
+    name=x_px
+    ndims=2
+    dumpmask=always
+    direction1 = dir_x
+    direction2 = dir_px
+    # range is ignored for spatial coordinates
+    range1 = (1,1)
+    range2 = (0,0)
+    # resolution is ignored for spatial coordinates
+    resolution1 = 1
+    resolution2 = 30
+    include_species:Electron
+    include_species:Ion
+end:dist_fn
+
+
+begin:dist_fn
+    name=py_pz
+    ndims=2
+    dumpmask=always
+    direction1 = dir_py
+    direction2 = dir_pz
+    # range is ignored for spatial coordinates
+    range1 = (-pimax,pimax)
+    range2 = (-pimax,pimax)
+    # resolution is ignored for spatial coordinates
+    resolution1 = 100
+    resolution2 = 100
+    include_species:Ion
+end:dist_fn
+
+               
